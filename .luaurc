@@ -1,6 +1,6 @@
 {
 	"aliases": {
-		"Alecs": "src/init.luau"
+		"Alecs": "src"
 	},
 	"languageMode": "strict",
 	"lint": { "*": true, "LocalUnused": false }

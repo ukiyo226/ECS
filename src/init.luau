@@ -152,8 +152,6 @@ function Alecs.SetComponent<T>(entity: Entity, component: Component, data: T): (
 			archetypeEntities[oldArchetype][oldEntityCount] = nil
 			archetypeEntityCounts[oldArchetype] -= 1
 		end
-
-		queryCache = {}
 	end
 
 	if not archetypeColumns[newArchetype][component] then
@@ -219,7 +217,6 @@ function Alecs.RemoveComponent(entity: Entity, component: Component): any
 		archetypeEntities[oldArchetype][oldEntityCount] = nil
 		archetypeEntityCounts[oldArchetype] -= 1
 		componentFrequency[component] -= 1
-		queryCache = {}
 	end
 
 	return removedData
