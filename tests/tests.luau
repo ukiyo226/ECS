@@ -1,6 +1,5 @@
 local Alecs = require("@Alecs")
 
--- Custom function to run an assertion
 local function EXPECT_EQ<T>(expected: T, received: T, message: string): ()
 	if expected ~= received then
 		error(message .. ": expected " .. tostring(expected) .. ", but got " .. tostring(received))
@@ -9,7 +8,6 @@ local function EXPECT_EQ<T>(expected: T, received: T, message: string): ()
 	end
 end
 
--- Test 1: Spawn Entity
 local entity1 = Alecs.SpawnEntity()
 EXPECT_EQ(type(entity1), "number", "Entity 1 should be a number")
 
