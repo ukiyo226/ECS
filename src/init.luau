@@ -23,7 +23,7 @@ local nextArchetypeId: Archetype = 1
 local componentMaskCache: { [Component]: number } = {}
 local componentBits: number = 0xFFFFF
 local COMPONENT_MASK: number = lshift(0b1, componentBits) - 0b1
-local queryCache: { [number]: { Archetype } } = {}
+local queryCache = setmetatable({}, { __mode = "k" }) :: typeof(setmetatable({ 1 }, { __mode = "v" }))
 
 local Alecs = {}
 
@@ -211,7 +211,6 @@ function Alecs.RemoveComponent(entity: Entity, component: Component): any
 			end
 			oldColumn[oldEntityCount] = nil
 		end
-
 		if oldIndex < oldEntityCount then
 			local movedEntity = archetypeEntities[oldArchetype][oldEntityCount]
 			archetypeEntities[oldArchetype][oldIndex] = movedEntity
@@ -220,7 +219,6 @@ function Alecs.RemoveComponent(entity: Entity, component: Component): any
 		archetypeEntities[oldArchetype][oldEntityCount] = nil
 		archetypeEntityCounts[oldArchetype] -= 1
 		componentFrequency[component] -= 1
-
 		queryCache = {}
 	end
 
@@ -232,7 +230,6 @@ function Alecs.Query(components: { Component }, strict: boolean?): () -> Entity?
 	for i = 1, #components do
 		queryBitmask = bor(queryBitmask, componentMaskCache[components[i]])
 	end
-
 	if not queryCache[queryBitmask] then
 		local matchingArchetypes = {}
 		for i, archetypeBitmask in archetypeBitmap do
@@ -253,15 +250,11 @@ function Alecs.Query(components: { Component }, strict: boolean?): () -> Entity?
 	local totalArchetypes = #matchingArchetypes
 	local currentArchetypeIndex = 1
 	local currentEntityIndex = 1
-
 	return function(): Entity?
 		while currentArchetypeIndex <= totalArchetypes do
 			local archetype = matchingArchetypes[currentArchetypeIndex]
-			local entities = archetypeEntities[archetype]
-			local entityCount = archetypeEntityCounts[archetype]
-
-			if currentEntityIndex <= entityCount then
-				local entity = entities[currentEntityIndex]
+			if currentEntityIndex <= archetypeEntityCounts[archetype] then
+				local entity = archetypeEntities[archetype][currentEntityIndex]
 				currentEntityIndex += 1
 				return entity
 			end
