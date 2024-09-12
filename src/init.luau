@@ -161,46 +161,51 @@ function Alecs.RemoveComponent(entity: Entity, component: Component): any
 	return removedData
 end
 
-function Alecs.Query(components: { Component }, required: boolean?): () -> Entity?
-	local queryBitmask: number = 0
-	for i = 1, #components do
-		queryBitmask = bor(queryBitmask, componentMaskCache[components[i]])
-	end
+function Alecs.Query(components: { Component }, strict: boolean?): () -> Entity?
+    local queryBitmask: number = 0
+    for i = 1, #components do
+        queryBitmask = bor(queryBitmask, componentMaskCache[components[i]])
+    end
 
-	local matchingArchetypes = table.create(32)
-	if required then
-		for archetypeBitmask, archetypeId in archetypeBitmap do
-			if band(archetypeBitmask, queryBitmask) == queryBitmask then
-				table.insert(matchingArchetypes, archetypeId)
-			end
-		end
-	else
-		for archetypeBitmask, archetypeId in archetypeBitmap do
-			if band(archetypeBitmask, queryBitmask) ~= 0 then
-				table.insert(matchingArchetypes, archetypeId)
-			end
-		end
-	end
+    local matchingArchetypes = table.create(32)
+    if strict then
+        for archetypeBitmask, archetypeId in archetypeBitmap do
+            if band(archetypeBitmask, queryBitmask) == queryBitmask then
+                table.insert(matchingArchetypes, archetypeId)
+            end
+        end
+    else
+        for archetypeBitmask, archetypeId in archetypeBitmap do
+            if band(archetypeBitmask, queryBitmask) ~= 0 then
+                table.insert(matchingArchetypes, archetypeId)
+            end
+        end
+    end
+    local totalArchetypes = #matchingArchetypes
 
-	local currentArchetypeIndex = 1
-	local currentEntityIndex = 1
-	return function(): Entity?
-		while currentArchetypeIndex <= #matchingArchetypes do
-			local archetype = matchingArchetypes[currentArchetypeIndex]
-			local archetypeEntitiesArray = archetypeEntities[archetype]
-			local entityCount = archetypeEntityCounts[archetype]
-
-			while currentEntityIndex <= entityCount do
-				local entity = archetypeEntitiesArray[currentEntityIndex]
-				currentEntityIndex += 1
-				return entity
-			end
-
-			currentArchetypeIndex += 1
-			currentEntityIndex = 1
-		end
-		return nil
-	end
+    local currentArchetypeIndex = 1
+    local currentEntityIndex = 1
+    local archetypeEntitiesArray
+    local entityCount
+    return function(): Entity?
+        while currentArchetypeIndex <= totalArchetypes do
+            if not archetypeEntitiesArray then
+                local archetype = matchingArchetypes[currentArchetypeIndex]
+                archetypeEntitiesArray = archetypeEntities[archetype]
+                entityCount = archetypeEntityCounts[archetype]
+            end
+            if currentEntityIndex <= entityCount then
+                local entity = archetypeEntitiesArray[currentEntityIndex]
+                currentEntityIndex += 1
+                return entity
+            else
+                currentArchetypeIndex += 1
+                currentEntityIndex = 1
+                archetypeEntitiesArray = nil
+            end
+        end
+        return nil
+    end
 end
 
 function Alecs.Has(entity: Entity, component: Component): any?
