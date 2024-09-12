@@ -1,0 +1,7 @@
+{
+	"aliases": {
+		"Alecs": "src"
+	},
+	"languageMode": "strict",
+	"lint": { "*": true, "LocalUnused": false }
+}
