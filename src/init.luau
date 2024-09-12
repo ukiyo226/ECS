@@ -29,32 +29,36 @@ local queryCache: { [number]: { [Entity]: boolean } } = {}
 local Alecs = {}
 
 local function MoveArchetype(entity: Entity, oldArchetype: Archetype, newArchetype: Archetype): ()
-    if oldArchetype == newArchetype then
-        return
-    end
+	if oldArchetype == newArchetype then
+		return
+	end
+	
+	if oldArchetype ~= 0 then
+		local entityCount: number = archetypeEntityCounts[oldArchetype] or 0
+		local archetypeEntitiesArray: {Entity} = archetypeEntities[oldArchetype] or {}
+		local index: number = entityToArchetypeIndex[entity]
 
-    if oldArchetype ~= 0 then
-        local entityCount: number = archetypeEntityCounts[oldArchetype] or 0
-        local archetypeEntitiesArray: {Entity} = archetypeEntities[oldArchetype] or {}
-
-        local index: number = entityToArchetypeIndex[entity]
-        if index and entityCount > 0 then
-            local lastEntity: Entity = archetypeEntitiesArray[entityCount]
-            archetypeEntitiesArray[index] = lastEntity
-            archetypeEntitiesArray[entityCount] = nil
-            archetypeEntityCounts[oldArchetype] = entityCount - 1
-            entityToArchetypeIndex[lastEntity] = index
-        end
-    end
-
-    if newArchetype ~= 0 then
-        local newCount: number = (archetypeEntityCounts[newArchetype] or 0) + 1
-        archetypeEntities[newArchetype] = archetypeEntities[newArchetype] or {}
-        archetypeEntities[newArchetype][newCount] = entity
-        archetypeEntityCounts[newArchetype] = newCount
-        entityToArchetypeIndex[entity] = newCount
-        entityArchetypes[entity] = newArchetype
-    end
+		if index and entityCount > 0 then
+			local lastEntity: Entity = archetypeEntitiesArray[entityCount]
+			archetypeEntitiesArray[index] = lastEntity
+			archetypeEntitiesArray[entityCount] = nil
+			archetypeEntityCounts[oldArchetype] = entityCount - 1
+			entityToArchetypeIndex[lastEntity] = index
+		end
+	end
+	
+	if newArchetype and newArchetype ~= 0 then
+		archetypeEntities[newArchetype] = archetypeEntities[newArchetype] or {}
+		archetypeEntityCounts[newArchetype] = archetypeEntityCounts[newArchetype] or 0
+		local newCount: number = archetypeEntityCounts[newArchetype] + 1
+		archetypeEntities[newArchetype][newCount] = entity
+		archetypeEntityCounts[newArchetype] = newCount
+		entityToArchetypeIndex[entity] = newCount
+		entityArchetypes[entity] = newArchetype
+	else
+		entityArchetypes[entity] = 0
+		entityToArchetypeIndex[entity] = 0
+	end
 end
 
 function Alecs.SpawnEntity(): Entity
@@ -167,7 +171,6 @@ function Alecs.RemoveComponent(entity: Entity, component: Component): any
 	componentDataArray[lastIndex] = nil
 	entityIndexArray[lastEntity] = index
 	entityIndexArray[entity] = nil
-
 	return componentDataArray[index]
 end
 
