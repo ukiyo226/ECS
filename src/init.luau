@@ -23,7 +23,7 @@ local nextArchetypeId: Archetype = 1
 local componentMaskCache: { [Component]: number } = {}
 local componentBits: number = 0xFFFFF
 local COMPONENT_MASK: number = lshift(0b1, componentBits) - 0b1
-local queryCache = setmetatable({}, { __mode = "k" }) :: typeof(setmetatable({ 1 }, { __mode = "v" }))
+local queryCache = setmetatable({}, { __mode = "v" }) :: typeof(setmetatable({ 1 }, { __mode = "v" }))
 
 local Alecs = {}
 
