@@ -41,3 +41,5 @@ for entity in iterator do
 end
 
 EXPECT_EQ(#entitiesWithHealth, 2, "There should be 2 entities with the health component")
+
+print("Test")
