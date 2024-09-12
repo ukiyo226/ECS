@@ -7,14 +7,12 @@ type Entity = number
 
 local band, bor, bnot, lshift = bit32.band, bit32.bor, bit32.bnot, bit32.lshift
 
-local entityArchetypes: { [Entity]: number } = table.create(10000, 0)
-local entityToArchetypeIndex: { [Entity]: number } = table.create(10000, 0)
+local entityArchetypes: { [Entity]: number } = table.create(1000, 0)
+local entityToArchetypeIndex: { [Entity]: number } = table.create(1000, 0)
 local freeEntities: { Entity } = table.create(50)
 local archetypeEntities: { [Archetype]: { Entity } } = {}
 local archetypeEntityCounts: { [Archetype]: number } = {}
-local componentEntities: { [Component]: { Entity } } = {}
-local componentData: { [Component]: { any } } = {}
-local componentEntityIndex: { [Component]: { [Entity]: number } } = {}
+local componentStorage: { [Component]: { [Entity]: any } } = {}
 local archetypeBitmap: { [number]: Archetype } = {}
 
 local nextEntityId: Entity = 1
@@ -24,23 +22,24 @@ local componentMaskCache: { [Component]: number } = {}
 local componentBits: number = 0xFFFFF
 local COMPONENT_MASK: number = lshift(0b1, componentBits) - 0b1
 
-local queryCache: { [number]: { [Entity]: boolean } } = {}
+-- FUture implementation
+--local queryCache: { [number]: { Archetype } } = {}
+--local queryCacheVersion: number = 0
 
 local Alecs = {}
 
--- FIXME
 local function MoveArchetype(entity: Entity, oldArchetype: Archetype, newArchetype: Archetype): ()
 	if oldArchetype == newArchetype then
 		return
 	end
 
 	if oldArchetype ~= 0 then
-		local entityCount: number = archetypeEntityCounts[oldArchetype]
-		local archetypeEntitiesArray: {Entity} = archetypeEntities[oldArchetype]
-		local index: number = entityToArchetypeIndex[entity]
+		local entityCount = archetypeEntityCounts[oldArchetype]
+		local archetypeEntitiesArray = archetypeEntities[oldArchetype]
+		local index = entityToArchetypeIndex[entity]
 
 		if index then
-			local lastEntity: Entity = archetypeEntitiesArray[entityCount]
+			local lastEntity = archetypeEntitiesArray[entityCount]
 			archetypeEntitiesArray[index] = lastEntity
 			archetypeEntitiesArray[entityCount] = nil
 			archetypeEntityCounts[oldArchetype] -= 1
@@ -49,18 +48,24 @@ local function MoveArchetype(entity: Entity, oldArchetype: Archetype, newArchety
 	end
 
 	if newArchetype ~= 0 then
-		local newCount: number = (archetypeEntityCounts[newArchetype] or 0) + 1
-		archetypeEntityCounts[newArchetype] = newCount
 		archetypeEntities[newArchetype] = archetypeEntities[newArchetype] or {}
+		local newCount = (archetypeEntityCounts[newArchetype] or 0) + 1
 		archetypeEntities[newArchetype][newCount] = entity
+		archetypeEntityCounts[newArchetype] = newCount
 		entityToArchetypeIndex[entity] = newCount
-		entityArchetypes[entity] = newArchetype
 	end
+
+	entityArchetypes[entity] = newArchetype
+	--queryCacheVersion += 1
+	--queryCache = {}
 end
 
 function Alecs.SpawnEntity(): Entity
 	local entity: Entity = table.remove(freeEntities) or nextEntityId
-	nextEntityId += 1
+	if entity == nextEntityId then
+		nextEntityId += 1
+	end
+
 	entityArchetypes[entity] = 0
 	entityToArchetypeIndex[entity] = 0
 	return entity
@@ -85,11 +90,13 @@ function Alecs.DespawnEntity(entity: Entity): ()
 	entityArchetypes[entity] = 0
 	entityToArchetypeIndex[entity] = 0
 
-	for component, _ in componentData do
-		componentEntityIndex[component][entity] = nil
+	for component, storage in componentStorage do
+		storage[entity] = nil
 	end
 
 	table.insert(freeEntities, entity)
+	--queryCacheVersion += 1
+	--queryCache = {}
 end
 
 function Alecs.CreateComponent(): Component
@@ -107,114 +114,100 @@ function Alecs.CreateComponent(): Component
 			newArchetypeBitmap[newBitmask] = archetypeId
 		end
 		archetypeBitmap = newArchetypeBitmap
-		queryCache = {}
+		--queryCacheVersion += 1
+		--queryCache = {}
 	end
 	local component: Component = nextComponentId
 	nextComponentId += 1
 
-	componentEntities[component] = {}
-	componentData[component] = {}
-	componentEntityIndex[component] = {}
-
+	componentStorage[component] = {}
 	componentMaskCache[component] = lshift(0b1, component)
 	return component
 end
 
-function Alecs.AddComponent<T>(entity: Entity, component: Component, data: T): ()
+function Alecs.SetComponent<T>(entity: Entity, component: Component, data: T): ()
 	local oldArchetype: Archetype = entityArchetypes[entity]
-	local newBitmask: number = bor(entityArchetypes[entity], componentMaskCache[component])
+	local newBitmask: number = bor(oldArchetype, componentMaskCache[component])
 	local newArchetype: Archetype = archetypeBitmap[newBitmask]
 
 	if not newArchetype then
 		nextArchetypeId += 1
-		archetypeBitmap[newBitmask] = nextArchetypeId
 		newArchetype = nextArchetypeId
+		archetypeBitmap[newBitmask] = newArchetype
 		archetypeEntities[newArchetype] = {}
 		archetypeEntityCounts[newArchetype] = 0
 	end
 
 	MoveArchetype(entity, oldArchetype, newArchetype)
-	queryCache = {}
-
-	local componentDataArray: { any } = componentData[component]
-	local entityIndexArray: { [Entity]: number } = componentEntityIndex[component]
-	local entitiesArray: { Entity } = componentEntities[component]
-
-	local index: number = #entitiesArray + 1
-	entitiesArray[index] = entity
-	componentDataArray[index] = data
-	entityIndexArray[entity] = index
+	componentStorage[component][entity] = data
 end
 
 function Alecs.RemoveComponent(entity: Entity, component: Component): any
 	local oldArchetype: Archetype = entityArchetypes[entity]
-	local newBitmask: number = band(entityArchetypes[entity], bnot(componentMaskCache[component]))
+	local newBitmask: number = band(oldArchetype, bnot(componentMaskCache[component]))
 	local newArchetype: Archetype = archetypeBitmap[newBitmask]
 
+	if not newArchetype then
+		nextArchetypeId += 1
+		newArchetype = nextArchetypeId
+		archetypeBitmap[newBitmask] = newArchetype
+		archetypeEntities[newArchetype] = {}
+		archetypeEntityCounts[newArchetype] = 0
+	end
 	MoveArchetype(entity, oldArchetype, newArchetype)
-	queryCache = {}
 
-	local componentDataArray: { any } = componentData[component]
-	local entityIndexArray: { [Entity]: number } = componentEntityIndex[component]
-	local entitiesArray: {Entity} = componentEntities[component]
-
-	local index: number = entityIndexArray[entity]
-	local lastIndex: number = #entitiesArray
-	local lastEntity: Entity = entitiesArray[lastIndex]
-
-	entitiesArray[index] = lastEntity
-	entitiesArray[lastIndex] = nil
-	componentDataArray[index] = componentDataArray[lastIndex]
-	componentDataArray[lastIndex] = nil
-	entityIndexArray[lastEntity] = index
-	entityIndexArray[entity] = nil
-
-	return componentDataArray[index]
+	local removedData = componentStorage[component][entity]
+	componentStorage[component][entity] = nil
+	return removedData
 end
 
-function Alecs.GetComponentData(entity: Entity, component: Component): any
-	return componentData[component][componentEntityIndex[component][entity]]
-end
-
-function Alecs.Query(components: { Component }): () -> Entity?
-	local uniqueComponents: { [Component]: boolean } = {}
+function Alecs.Query(components: { Component }, required: boolean?): () -> Entity?
 	local queryBitmask: number = 0
+	for i = 1, #components do
+		queryBitmask = bor(queryBitmask, componentMaskCache[components[i]])
+	end
 
-	for _, component in ipairs(components) do
-		if not uniqueComponents[component] then
-			uniqueComponents[component] = true
-			queryBitmask = bor(queryBitmask, componentMaskCache[component])
+	local matchingArchetypes = table.create(32)
+	if required then
+		for archetypeBitmask, archetypeId in archetypeBitmap do
+			if band(archetypeBitmask, queryBitmask) == queryBitmask then
+				table.insert(matchingArchetypes, archetypeId)
+			end
+		end
+	else
+		for archetypeBitmask, archetypeId in archetypeBitmap do
+			if band(archetypeBitmask, queryBitmask) ~= 0 then
+				table.insert(matchingArchetypes, archetypeId)
+			end
 		end
 	end
-	local cachedEntities = queryCache[queryBitmask]
-	if not cachedEntities then
-		cachedEntities = {}
-		queryCache[queryBitmask] = cachedEntities
-	end
 
-	local nextEntity = 1
-	local entityCount = #entityArchetypes
+	local currentArchetypeIndex = 1
+	local currentEntityIndex = 1
 	return function(): Entity?
-		while nextEntity <= entityCount do
-			local archetype = entityArchetypes[nextEntity]
-			if cachedEntities[nextEntity] then
-				local cached = nextEntity
-				nextEntity += 1
-				return cached
-			elseif band(archetype, queryBitmask) == queryBitmask then
-				cachedEntities[nextEntity] = true
-				local result = nextEntity
-				nextEntity += 1
-				return result
+		while currentArchetypeIndex <= #matchingArchetypes do
+			local archetype = matchingArchetypes[currentArchetypeIndex]
+			local archetypeEntitiesArray = archetypeEntities[archetype]
+			local entityCount = archetypeEntityCounts[archetype]
+
+			while currentEntityIndex <= entityCount do
+				local entity = archetypeEntitiesArray[currentEntityIndex]
+				currentEntityIndex += 1
+				return entity
 			end
-			nextEntity += 1
+
+			currentArchetypeIndex += 1
+			currentEntityIndex = 1
 		end
 		return nil
 	end
 end
 
-function Alecs.Has(entity: Entity, component: Component): boolean
-	return band(entityArchetypes[entity], componentMaskCache[component]) ~= 0b0
+function Alecs.Has(entity: Entity, component: Component): any?
+	if band(entityArchetypes[entity], componentMaskCache[component]) ~= 0b0 then
+		return componentStorage[component][entity]
+	end
+	return nil
 end
 
 return Alecs
