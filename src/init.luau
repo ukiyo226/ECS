@@ -7,23 +7,23 @@ export type Archetype = number
 
 local band, bor, bnot, lshift = bit32.band, bit32.bor, bit32.bnot, bit32.lshift
 
-local entityArchetypes: {[Entity]: Archetype} = table.create(1000, 0)
-local entityToArchetypeIndex: {[Entity]: number} = table.create(1000, 0)
-local freeEntities: {Entity} = table.create(50)
-local archetypeEntities: {[Archetype]: {Entity}} = {}
+local entityArchetypes: { [Entity]: Archetype } = table.create(1000, 0)
+local entityToArchetypeIndex: { [Entity]: number } = table.create(1000, 0)
+local freeEntities: { Entity } = table.create(50)
+local archetypeEntities: { [Archetype]: { Entity } } = {}
 local archetypeEntityCounts: {[Archetype]: number} = {}
-local archetypeColumns: {[Archetype]: {[Component]: {any}}} = {}
-local archetypeBitmap: {number} = {}
-local archetypeIds: {Archetype} = {}
-local componentFrequency: {[Component]: number} = {}
+local archetypeColumns: { [Archetype]: { [Component]: { any } } } = {}
+local archetypeBitmap: { number } = {}
+local archetypeIds: { Archetype } = {}
+local componentFrequency: { [Component]: number } = {}
 
 local nextEntityId: Entity = 1
 local nextComponentId: Component = 1
 local nextArchetypeId: Archetype = 1
-local componentMaskCache: {[Component]: number} = {}
+local componentMaskCache: { [Component]: number } = {}
 local componentBits: number = 0xFFFFF
 local COMPONENT_MASK: number = lshift(0b1, componentBits) - 0b1
-local queryCache: {[number]: {Archetype}} = {}
+local queryCache: { [number]: { Archetype } } = {}
 
 local Alecs = {}
 
@@ -45,7 +45,7 @@ function Alecs.DespawnEntity(entity: Entity): ()
 	local archetype: Archetype = entityArchetypes[entity]
 	if archetype ~= 0 then
 		local entityCount: number = archetypeEntityCounts[archetype]
-		local archetypeEntitiesArray: {Entity} = archetypeEntities[archetype]
+		local archetypeEntitiesArray: { Entity } = archetypeEntities[archetype]
 		local index: number = entityToArchetypeIndex[entity]
 
 		if index then
@@ -82,7 +82,7 @@ function Alecs.CreateComponent(): Component
 			componentMaskCache[component] = lshift(0b1, component)
 		end
 
-		local newArchetypeBitmap: {number} = table.create(#archetypeBitmap)
+		local newArchetypeBitmap: { number } = table.create(#archetypeBitmap)
 		for i, oldBitmask in ipairs(archetypeBitmap) do
 			newArchetypeBitmap[i] = band(oldBitmask, COMPONENT_MASK)
 		end
@@ -227,7 +227,7 @@ function Alecs.RemoveComponent(entity: Entity, component: Component): any
 	return removedData
 end
 
-function Alecs.Query(components: {Component}, strict: boolean?): () -> Entity?
+function Alecs.Query(components: { Component }, strict: boolean?): () -> Entity?
 	local queryBitmask: number = 0
 	for i = 1, #components do
 		queryBitmask = bor(queryBitmask, componentMaskCache[components[i]])
@@ -273,7 +273,7 @@ function Alecs.Query(components: {Component}, strict: boolean?): () -> Entity?
 	end
 end
 
-function Alecs.Has<T>(entity: Entity, component: Component): T?
+function Alecs.Has(entity: Entity, component: Component): any
 	local column = archetypeColumns[entityArchetypes[entity]][component]
 	if not column then
 		return nil
