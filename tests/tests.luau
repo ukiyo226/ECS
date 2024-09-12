@@ -4,12 +4,12 @@ local function EXPECT_EQ<T>(expected: T, received: T, message: string): ()
 	if expected ~= received then
 		error(message .. ": expected " .. tostring(expected) .. ", but got " .. tostring(received))
 	else
-		print("Test passed: " .. message)
+		print("Test passed")
 	end
 end
 
 local entity1 = Alecs.SpawnEntity()
-EXPECT_EQ(type(entity1), "number", "Entity 1 should be a number")
+EXPECT_EQ(typeof(entity1), "number", "Entity 1 should be a number")
 
 local healthComponent = Alecs.CreateComponent()
 Alecs.AddComponent(entity1, healthComponent, { health = 100 })
