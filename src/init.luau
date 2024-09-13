@@ -255,20 +255,26 @@ function Alecs.Query(components: { Component }, strict: boolean?): () -> (Entity
 				local entityData = table.create(1, archetypeEntities[archetype][currentEntityIndex])
 				local entity = entityData[1]
 				for _, componentID in components do
-					table.insert(entityData, Alecs.Has(entity, componentID))
+					local column = archetypeColumns[entityArchetypes[entity]][componentID]
+					local value = if column then column[entityToArchetypeIndex[entity]] else nil
+					table.insert(entityData, value)
 				end
 				currentEntityIndex += 1
 				return table.unpack(entityData)
 			end
 			currentArchetypeIndex += 1
 			currentEntityIndex = 1
-		end		
+		end
 		return nil
 	end
 end
 
 function Alecs.Has(entity: Entity, component: Component): any
-	local column = archetypeColumns[entityArchetypes[entity]][component]
+	local entityArchetypeIndex = entityToArchetypeIndex[entity]
+	if entityArchetypeIndex == 0 then
+		return nil
+	end
+	local column = archetypeColumns[entityArchetypeIndex][component]
 	if not column then
 		return nil
 	end
