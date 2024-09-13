@@ -222,7 +222,7 @@ function Alecs.RemoveComponent(entity: Entity, component: Component): any
 	return removedData
 end
 
-function Alecs.Query(components: { Component }, strict: boolean?): () -> Entity?
+function Alecs.Query(components: { Component }, strict: boolean?): () -> (Entity, ...any)?
 	local queryBitmask: number = 0
 	for i = 1, #components do
 		queryBitmask = bor(queryBitmask, componentMaskCache[components[i]])
@@ -247,18 +247,22 @@ function Alecs.Query(components: { Component }, strict: boolean?): () -> Entity?
 	local totalArchetypes = #matchingArchetypes
 	local currentArchetypeIndex = 1
 	local currentEntityIndex = 1
-	return function(): Entity?
+	
+	return function(): () -> (Entity, ...any)?
 		while currentArchetypeIndex <= totalArchetypes do
 			local archetype = matchingArchetypes[currentArchetypeIndex]
 			if currentEntityIndex <= archetypeEntityCounts[archetype] then
-				local entity = archetypeEntities[archetype][currentEntityIndex]
+				local entityData = table.create(1, archetypeEntities[archetype][currentEntityIndex])
+				local entity = entityData[1]
+				for _, componentID in components do
+					table.insert(entityData, Alecs.Has(entity, componentID))
+				end
 				currentEntityIndex += 1
-				return entity
+				return table.unpack(entityData)
 			end
-
 			currentArchetypeIndex += 1
 			currentEntityIndex = 1
-		end
+		end		
 		return nil
 	end
 end
