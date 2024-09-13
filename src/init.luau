@@ -256,15 +256,14 @@ function Alecs.Query(components: { Component }, strict: boolean?): () -> (Entity
 				local entity = entityData[1]
 				for _, componentID in components do
 					local column = archetypeColumns[entityArchetypes[entity]][componentID]
-					local value = if column then column[entityToArchetypeIndex[entity]] else nil
-					table.insert(entityData, value)
+          entityData[#entityData + 1] = column[entityToArchetypeIndex[entity]]
 				end
 				currentEntityIndex += 1
 				return table.unpack(entityData)
 			end
 			currentArchetypeIndex += 1
 			currentEntityIndex = 1
-		end
+		end		
 		return nil
 	end
 end
