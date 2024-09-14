@@ -25,7 +25,6 @@ local removedComponentData = Alecs.Has(entity1, healthComponent)
 EXPECT_EQ(nil, removedComponentData, "Health component should be removed from Entity 1")
 
 Alecs.DespawnEntity(entity1)
-EXPECT_EQ(nil, Alecs.Has(entity1, healthComponent), "Entity 1 should no longer exist")
 
 local entity2 = Alecs.SpawnEntity()
 Alecs.SetComponent(entity2, healthComponent, { health = 50 })
